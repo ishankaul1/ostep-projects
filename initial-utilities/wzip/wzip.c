@@ -62,7 +62,7 @@ int process_file(FILE *fp) {
     return 1;
 }
 
-
+// TODO - this encodes separately across files; Need to instead continue the loop on the next file.
 int main(int argc, char* argv[]) {
     if (argc == 1) {
         printf("wzip: file1 [file2 ...]\n");
