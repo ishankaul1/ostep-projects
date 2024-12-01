@@ -22,55 +22,6 @@ char *read_file(FILE *fp, size_t *size_out)
     return buffer;
 }
 
-int process_file(FILE *fp)
-{
-    if (fp == NULL)
-    {
-        printf("wzip: cannot open file\n");
-        exit(1);
-    }
-
-    size_t size_out;
-    // gets malloced in read_file
-    char *fileBuffer = read_file(fp, &size_out);
-
-    if (fileBuffer == NULL)
-    {
-        printf("wzip: cannot open file\n");
-        exit(1);
-    }
-
-    int currentCount = 1;
-    char prev = '\0';
-    char cur;
-
-    for (int i = 0; i < size_out; i++)
-    {
-        cur = fileBuffer[i];
-        if (prev == '\0')
-        {
-            prev = cur;
-        }
-        else if (cur != prev)
-        {
-            fwrite(&currentCount, sizeof(int), 1, stdout);
-            fwrite(&prev, sizeof(char), 1, stdout);
-            prev = cur;
-            currentCount = 1;
-        }
-        else
-        {
-            currentCount++;
-        }
-    }
-
-    fwrite(&currentCount, sizeof(int), 1, stdout);
-    fwrite(&prev, sizeof(char), 1, stdout);
-
-    free(fileBuffer);
-    return 1;
-}
-
 int main(int argc, char *argv[])
 {
     if (argc == 1)
@@ -88,7 +39,6 @@ int main(int argc, char *argv[])
     size_t size_out;
     char* fileBuffer;
 
-    // loop through files
     for (int i = 1; i < argc; i++)
     {
         // TODO - figure out how to write a helper function with this nasty cross-file implementation
@@ -108,8 +58,6 @@ int main(int argc, char *argv[])
             exit(1);
         }
 
-        // read through filebuffer;
-        // I could simplify this code by reading all files into the buffer at once, but would be way more likely to crash
 
         for (int j = 0; j < size_out; j++)
         {
