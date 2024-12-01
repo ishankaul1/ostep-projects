@@ -1,5 +1,7 @@
 
-# Projects for an Operating Systems Class
+# Ishan's fork of ostep-projects
+
+Teaching myself C and Operating Systems (cause why not?)
 
 This repository holds a number of projects that can be used in an operating
 systems class aimed at upper-level undergraduates and (in some cases)
