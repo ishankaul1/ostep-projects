@@ -1,29 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// TODO - make this a utility in this repo; seems to be useful already
-char *read_file(FILE *fp, size_t *size_out)
-{
-    fseek(fp, 0, SEEK_END);
-    long size = ftell(fp);
-    *size_out = size;
-    fseek(fp, 0, SEEK_SET);
-    char *buffer = malloc(size);
-
-    if (!buffer)
-        return NULL;
-
-    size_t read = fread(buffer, 1, size, fp);
-    if (read != size)
-    {
-        free(buffer);
-        return NULL;
-    }
-
-    return buffer;
-}
-
-char *process_file(FILE *fp)
+int process_file(FILE *fp)
 {
     if (fp == NULL)
     {
@@ -31,30 +9,28 @@ char *process_file(FILE *fp)
         exit(1);
     }
 
-    size_t file_length;
-    // need to free; gets malloced
-    char *fileBuffer = read_file(fp, &file_length);
+    unsigned char record[5];
 
-    if (fileBuffer == NULL)
+    while (fread(record, 1, 5, fp) == 5)
     {
-        printf("wunzip: cannot open file\n");
-        exit(1);
+        // Assumes little-endian
+        u_int32_t count = record[0] | (record[1] << 8) | (record[2] << 16) | (record[3] << 24);
+        char c = record[4];
+
+        for (int i = 0; i < count; i++)
+        {
+            putchar(c);
+        }
     }
-
-    for (int i = 0; i < file_length; i++) {
-        // parse out int and char
-
-        // emit char int times
-    }
-
-    free(fileBuffer);
+    return 0;
 }
 
 int main(int argc, char *argv[])
 {
     if (argc == 1)
     {
-        printf("wunzip: file1 [file2 ...]");
+        printf("wunzip: file1 [file2 ...]\n");
+        exit(1);
     }
 
     FILE *fp;
@@ -62,5 +38,10 @@ int main(int argc, char *argv[])
     for (int i = 1; i < argc; i++)
     {
         fp = fopen(argv[i], "r");
+        process_file(fp);
+        if (fp != stdin)
+        {
+            fclose(fp);
+        }
     }
 }
