@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
 
 char **parse_args(char *input_line)
 {
@@ -22,37 +23,92 @@ char **parse_args(char *input_line)
     return argv;
 }
 
-int main(int argc, char **argv)
+int parse_and_run_line(char *line)
 {
-    if (argc == 1)
+    char **parsed_args = parse_args(line);
+
+    int rc = fork();
+
+    if (rc < 0)
     {
-        // Interactive mode
-        char *line = NULL;
-        size_t buf_size = 0;
-        while (1)
+        fprintf(stderr, "fork failed\n");
+        return 1;
+    }
+    else if (rc == 0)
+    {
+        // in child - run exec
+    }
+    else
+    {
+        // in parent - wait for child
+    }
+
+    free(parsed_args);
+    return 0;
+}
+
+int process_input_file(FILE *fp, int print_wish)
+{
+    char *line = NULL;
+    size_t buf_size = 0;
+    ssize_t line_size = 0;
+
+    int caught_error = 0;
+    while (1)
+    {
+        if (print_wish)
         {
             printf("wish>");
-            ssize_t chars_read = getline(&line, &buf_size, stdin);
-            if (chars_read == -1)
+        }
+        line_size = getline(&line, &buf_size, fp);
+        if (line_size == -1)
+        {
+            // Special handling for EOF case here - just exit
+            if (errno == 0)
             {
-                if (errno == 0)
-                {
-                    return 0;
-                }
-                fprintf(stderr, "wish: Could not read input\n");
-                return 1;
+                return 0;
             }
-            char **parsed_args = parse_args(line);
+            caught_error = 1;
+        }
 
-            // do fork/exec in here
+        if (!caught_error)
+        {
+            caught_error = parse_and_run_line(line);
+        }
+        if (caught_error)
+        {
+            fprintf(stderr, "An error has occurred\n");
+            caught_error = 0;
+        }
 
-            free(parsed_args);
+        if (line != NULL)
+        {
             free(line);
             line = NULL;
         }
     }
+}
+
+int main(int argc, char **argv)
+{
+    if (argc > 2)
+    {
+        fprintf(stderr, "wish: expected 0 or 1 arguments but got %d", argc - 1);
+        exit(1);
+    }
     else if (argc == 2)
     {
-        // Input file mode
+        FILE *in_fp = fopen(argv[1], "r");
+        if (!in_fp)
+        {
+            fprintf(stderr, "wish: cannot open file '%s'\n", argv[1]);
+            return 1;
+        }
+        process_input_file(in_fp, 0);
+        fclose(in_fp);
+    }
+    else if (argc == 1)
+    {
+        process_input_file(stdin, 1);
     }
 }
