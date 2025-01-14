@@ -27,39 +27,103 @@ char **parse_args(char *input_line, int *argc)
     return argv;
 }
 
-// TODO - path resolution
-int _handle_arbitrary_command(char *parsed_args)
+int _resolve_command_path(char* cmd, char**path, int path_size, char** resolved_command) {
+    // first check if absolute
+    // printf("Resolving command: %s\n", cmd);
+    if (cmd[0] == '/'){
+        // edge case - what if the cmd passed is literally just '/'?
+        // printf("Entered cmd[0] == '/'");
+        if (access(cmd, F_OK) == 0){
+            *resolved_command = strdup(cmd);
+            if (*resolved_command == NULL){
+                return 1;
+            }
+            return 0;
+        }
+    }
+    char* cur_path;
+    char* full_path;
+    // printf("Path size: %d", path_size);
+    for (int i = 0; i < path_size; i++){
+        cur_path = *(path+i);
+        size_t full_path_len = strlen(cmd) + strlen(cur_path) + 2;
+        full_path = (char*) malloc(full_path_len);
+        if (full_path == NULL){
+            // printf("Full_path is null\n");
+            return 1;
+        }
+        strcpy(full_path, cur_path);
+        strcat(full_path, "/");
+        strcat(full_path, cmd);
+        // printf("\nChecking full path: {%s}\n", full_path);
+        // printf("==========================\n");
+        if (access(full_path, F_OK) == 0){
+            // printf("Access succeeded\n");
+            *resolved_command = strdup(full_path);
+            // printf("resolved command: {%s}", *resolved_command);
+            free(full_path);
+            if (*resolved_command == NULL){
+                // printf("Strdup to resolved_command failed\n");
+                return 1;
+            }
+            // printf("Strdup to resolved_command succeeded\n");
+            return 0;
+        } else {
+            // printf("Access failed\n");
+            free(full_path);
+        }
+    }
+    return 1;
+}
+
+int _handle_non_built_in_command(char **parsed_args, char** path, int *path_size)
 {
+
+    // handle path resolution
+    char* resolved_command = NULL;
+    int resolve_command_errored = _resolve_command_path(parsed_args[0], path, *path_size, &resolved_command);
+
+    // printf("Resolve command: %s, errored: %d\n", resolved_command, resolve_command_errored);
+
+    if (resolve_command_errored){
+        free(resolved_command);
+        return resolve_command_errored;
+    }
+
     int rc = fork();
 
     if (rc < 0)
     {
         fprintf(stderr, "Fork failed\n"); // debug
+        free(resolved_command);
         return 1;
     }
     else if (rc == 0)
     {
         // in child - run exec
+        parsed_args[0] = resolved_command;
         execv(parsed_args[0], parsed_args);
-        fprintf(stderr, "Exec failed\n"); // debug
+        fprintf(stderr, "execv failed: %s\n", strerror(errno));  // uncomment this for debugging
+
         // Exit, don't return. The child will continue to run the shell loop otherwise.
         exit(1);
     }
     else
     {
         // in parent - wait for child
-        int wc = wait(NULL);
+        wait(NULL);
     }
+    free(resolved_command);
     return 0;
 }
 
-int _handle_path(char **path_args, char **path, int *path_size)
+int _handle_path_cmd(char **path_args, char **path, int *path_size)
 {
     // skip 'path'
     ++path_args;
     while (*path_args != NULL)
     {
-        if (path_size >= MAX_STRING_ARRAY_SIZE)
+        if (*path_size >= MAX_STRING_ARRAY_SIZE)
         {
             return 1;
         }
@@ -75,7 +139,7 @@ int _handle_path(char **path_args, char **path, int *path_size)
     return 0;
 }
 
-int _handle_cd(char **cd_args, int cd_argc)
+int _handle_cd_cmd(char **cd_args, int cd_argc)
 {
     if (cd_argc != 2)
     {
@@ -112,7 +176,7 @@ int parse_and_run_line(char *line, char **path, int *path_size, int *should_exit
 
     if (strcmp(cmd, "path") == 0)
     {
-        ret = _handle_path(parsed_args, path, path_size);
+        ret = _handle_path_cmd(parsed_args, path, path_size);
     }
     else if (strcmp(cmd, "exit") == 0)
     {
@@ -127,11 +191,11 @@ int parse_and_run_line(char *line, char **path, int *path_size, int *should_exit
     }
     else if (strcmp(cmd, "cd") == 0)
     {
-        ret = _handle_cd(parsed_args, argc);
+        ret = _handle_cd_cmd(parsed_args, argc);
     }
     else
     {
-        ret = _handle_arbitrary_command(parsed_args);
+        ret = _handle_non_built_in_command(parsed_args, path, path_size);
     }
 
     free(parsed_args);
@@ -143,9 +207,11 @@ int _inject_bin_into_path(char **path, int *path_size)
     char *bin = strdup("/bin");
     if (bin == NULL)
     {
+        // printf("bin is null in _injecct\n");
         return 1;
     }
-    path[*(path_size)++] = bin;
+    path[*(path_size)] = bin;
+    (*path_size)++;
     return 0;
 }
 
@@ -172,11 +238,15 @@ int process_input_file(FILE *fp, int print_wish)
     {
         return 1;
     }
+    // printf("path size before: %d\n", path_size);
+
     if (_inject_bin_into_path(path, &path_size) != 0)
     {
         _free_arr_of_strings(path, path_size);
         return 1;
     }
+    // printf("path size after: %d\n", path_size);
+
 
     int caught_error = 0;
     int should_exit = 0;
@@ -254,6 +324,6 @@ int main(int argc, char **argv)
     {
         ret = process_input_file(stdin, 1);
     }
-    fprintf(stdout, "\n");
+    //fprintf(stdout, "\n");
     return ret;
 }
