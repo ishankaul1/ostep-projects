@@ -119,7 +119,24 @@ int _handle_non_built_in_command(char **parsed_args, char** path, int *path_size
 
 int _handle_path_cmd(char **path_args, char **path, int *path_size)
 {
-    // skip 'path'
+    // first, free all values of path
+
+    //DEBUG
+    // printf("Hanlding PATH on args: ");
+    // for (int i = 0; path_args[i] != NULL; i++)
+    // {
+    //     printf("arg[%d]: '%s'\n", i, path_args[i]);
+    // }
+    //DEBUG
+
+
+    for (int i = 0; i < *path_size; i++)
+    {
+        free(path[i]);
+    }
+
+    *path_size = 0;
+
     ++path_args;
     while (*path_args != NULL)
     {
@@ -132,7 +149,8 @@ int _handle_path_cmd(char **path_args, char **path, int *path_size)
         {
             return 1;
         }
-        path[*(path_size)++] = tmp;
+        path[*path_size] = tmp;
+        (*path_size)++;
         path_args++;
     }
 
